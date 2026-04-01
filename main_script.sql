@@ -8,7 +8,33 @@
 --           updates ACCOUNT balances, and removes processed
 --           rows from NEW_TRANSACTIONS.
 -- ============================================================
+Declare
+    CURSOR c_outer_txn IS 
+    SELECT DISTINCT
+        transaction_no,
+        transaction_date,
+        description
+    from NEW_TRANSACTIONS
+    ORDER BY transaction_no;
 
+
+    BEGIN
+
+        FOR r_outer IN c_outer_txn LOOP
+            INSERT INTO transaction_history (
+                transaction_no,
+                transaction_date,
+                description
+            ) VALUES ( 
+                r_outer.transaction,
+                r_outer.transaction_date,
+                r_outer.description
+            );
+
+        COMMIT;
+    END LOOP;
+END;
+/
 
 
     -- --------------------------------------------------------
