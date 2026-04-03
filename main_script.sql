@@ -59,6 +59,24 @@ Declare
 END;
 /
 
+    BEGIN
+
+        FOR r_outer IN c_outer_txn LOOP
+            INSERT INTO transaction_history (
+                transaction_no,
+                transaction_date,
+                description
+            ) VALUES ( 
+                r_outer.transaction,
+                r_outer.transaction_date,
+                r_outer.description
+            );
+
+        COMMIT;
+    END LOOP;
+END;
+/
+
 
     -- --------------------------------------------------------
     -- Outer loop: process one transaction at a time
