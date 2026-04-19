@@ -163,7 +163,7 @@ BEGIN
                     (v_transaction_no, v_transaction_date, v_description, 
                     'Negative Transaction Amount: transaction amounts should be positive.');
 
-            -- Member 3: WHEN invalid_transaction_type
+            -- WHEN invalid_transaction_type
             -- log to WKIS_ERROR_LOG with a descriptive custom message
             -- leave the transaction in NEW_TRANSACTIONS
             
@@ -174,7 +174,7 @@ BEGIN
                     (v_transaction_no, v_transaction_date, v_description, 
                     'Invalid Transaction Type: only D (debit) and C are accepted.');
 
-            -- Member 3: Something unexpected - let Oracle tell us what went wrong
+            -- Something unexpected - let Oracle tell us what went wrong
             -- use SQLERRM for the message — no custom message needed here
             -- log to WKIS_ERROR_LOG
             
