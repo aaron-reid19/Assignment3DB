@@ -1,8 +1,8 @@
 -- =============================================================================
--- Authors: [Member 1], [Member 2], [Member 3]
+-- Authors: Aaron Reid, Amal Musse, and Kaley Wood
 -- Southern Alberta Institute of Technology: CPRG307-[Section]
 -- Assignment 3 Part 2: PL/SQL Exception Handling — WKIS Accounting System
--- Created: [MM.DD.YYYY]
+-- Created: April 19, 2026
 --
 -- Processes transactions from NEW_TRANSACTIONS into TRANSACTION_HISTORY,
 -- TRANSACTION_DETAIL, and updates ACCOUNT balances. Invalid transactions
