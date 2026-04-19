@@ -35,9 +35,11 @@ DECLARE
 
     -- Member 2: exception for invalid account number (doesn't exist in ACCOUNT)
 
-    -- Member 3: exception for negative transaction amount
+    -- can't have negative dollar amounts - use D/C to express direction 
+    negative_amount EXCEPTION;
 
-    -- Member 3: exception for invalid transaction type (not D or C)
+    -- only D and C are legit transaction types
+    invalid_transaction_type EXCEPTION;
 
 BEGIN
 
@@ -81,18 +83,23 @@ BEGIN
 
 
                 -- =============================================================
-                -- ERROR 4 — Negative Transaction Amount (Member 3)
-                -- Check if the amount is negative. If so, raise the error.
-                -- Transactions should never have negative dollar values.
+                -- ERROR 4 — Negative Amount?
+                -- dollar value should always be positive
+                -- flip the direction with D or C
                 -- =============================================================
-
+                
+                IF v_transaction_amount < 0 THEN
+                    RAISE negative_amount;
+                END IF;
 
                 -- =============================================================
-                -- ERROR 5 — Invalid Transaction Type (Member 3)
-                -- Valid types are D (debit) and C (credit) only.
-                -- Anything else gets flagged and the transaction is skipped.
+                -- ERROR 5 — Valid transaction type? 
+                -- D and C are the only options - anything else is bad data
                 -- =============================================================
-
+                
+                IF v_transaction_type NOT IN ('D', 'C') THEN
+                    RAISE invalid_transaction_type;
+                END IF;
 
                 -- =============================================================
                 -- INSERT INTO TRANSACTION_DETAIL (Member 1)
@@ -145,17 +152,37 @@ BEGIN
             -- log to WKIS_ERROR_LOG with a descriptive custom message
             -- leave the transaction in NEW_TRANSACTIONS
 
-            -- Member 3: WHEN negative_amount
+            -- negative dollar amount - shouldn't happen - log it
             -- log to WKIS_ERROR_LOG with a descriptive custom message
             -- leave the transaction in NEW_TRANSACTIONS
+            
+            WHEN negative_amount THEN
+            	INSERT INTO WKIS_ERROR_LOG 
+            	    (transaction_no, transaction_date, description, error_msg)
+            	VALUES 
+                    (v_transaction_no, v_transaction_date, v_description, 
+                    'Negative Transaction Amount: transaction amounts should be positive.');
 
             -- Member 3: WHEN invalid_transaction_type
             -- log to WKIS_ERROR_LOG with a descriptive custom message
             -- leave the transaction in NEW_TRANSACTIONS
+            
+            WHEN invalid_transaction_type THEN
+                INSERT INTO WKIS_ERROR_LOG 
+                    (transaction_no, transaction_date, description, error_msg)
+                VALUES 
+                    (v_transaction_no, v_transaction_date, v_description, 
+                    'Invalid Transaction Type: only D (debit) and C are accepted.');
 
-            -- Member 3: WHEN OTHERS (unanticipated errors)
+            -- Member 3: Something unexpected - let Oracle tell us what went wrong
             -- use SQLERRM for the message — no custom message needed here
             -- log to WKIS_ERROR_LOG
+            
+            WHEN OTHERS THEN
+                INSERT INTO WKIS_ERROR_LOG 
+                    (transaction_no, transaction_date, description, error_msg)
+                VALUES 
+                    (v_transaction_no, v_transaction_date, v_description, SQLERRM);
 
         -- =====================================================================
         -- END inner block
