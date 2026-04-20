@@ -245,7 +245,7 @@ BEGIN
                 VALUES
                     (v_transaction_no, v_transaction_date, v_description,
                      'Amount Error: Transaction amount ' || v_transaction_amount ||
-                     ' is negative — amounts must be positive; use D/C for direction.');
+                     ' is negative - amounts must be positive; use D/C for direction.');
 
             WHEN e_invalid_transaction_type THEN
                 IF c_inner_transaction%ISOPEN THEN
@@ -256,7 +256,7 @@ BEGIN
                 VALUES
                     (v_transaction_no, v_transaction_date, v_description,
                      'Type Error: Transaction type ''' || v_transaction_type ||
-                     ''' is invalid — only D (debit) and C (credit) are accepted.');
+                     ''' is invalid - only D (debit) and C (credit) are accepted.');
 
             WHEN OTHERS THEN
                 IF c_inner_transaction%ISOPEN THEN
