@@ -47,6 +47,7 @@ DECLARE
     v_total_credits         NUMBER := 0;
     v_account_count         NUMBER := 0;
     v_default_trans_type    account_type.default_trans_type%TYPE;
+    v_error_msg             VARCHAR2(4000);
 
     -- =========================================================================
     -- CUSTOM EXCEPTION DECLARATIONS (Members 2 & 3)
@@ -262,10 +263,11 @@ BEGIN
                 IF c_inner_transaction%ISOPEN THEN
                     CLOSE c_inner_transaction;
                 END IF;
+                v_error_msg := SQLERRM;
                 INSERT INTO wkis_error_log
                     (transaction_no, transaction_date, description, error_msg)
                 VALUES
-                    (v_transaction_no, v_transaction_date, v_description, SQLERRM);
+                    (v_transaction_no, v_transaction_date, v_description, v_error_msg);
         END;
     END LOOP;
 
