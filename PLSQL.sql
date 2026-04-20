@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Authors: Aaron Reid, Amal Musse, and Kaley Wood
--- Southern Alberta Institute of Technology: CPRG307-[Section]
+-- Southern Alberta Institute of Technology: CPRG-307-C
 -- Assignment 3 Part 2: PL/SQL Exception Handling — WKIS Accounting System
 -- Created: April 19, 2026
 --
