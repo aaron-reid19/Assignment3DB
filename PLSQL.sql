@@ -19,6 +19,12 @@ DECLARE
 
     -- outer cursor: grabs each distinct transaction number from NEW_TRANSACTIONS
     -- (must be explicit cursor — no SELECT INTO on NEW_TRANSACTIONS)
+
+    -- inner cursor: grabs all detail rows for a given transaction number
+
+    -- variables to hold fetched cursor values and running totals
+    -- e.g. transaction number, description, date, debit/credit sums, etc.
+
     CURSOR c_outer_transaction IS
         SELECT transaction_no,
                MIN(transaction_date) AS transaction_date,
@@ -52,6 +58,14 @@ DECLARE
     -- CUSTOM EXCEPTION DECLARATIONS (Members 2 & 3)
     -- =========================================================================
 
+    -- Custom exception for rows missing a transaction number
+    e_null_transaction_no EXCEPTION;
+
+    -- Custom exception for accounting unbalanced transactions (debits not equal to credits)
+    e_unbalanced_transaction EXCEPTION;
+
+    -- Custom exception for account numbers not found in charts of accounts
+    e_invalid_account_no EXCEPTION;
     -- Member 2: exception for NULL transaction number
 
     -- Member 2: exception for debits not equal to credits
@@ -87,12 +101,16 @@ BEGIN
         -- BEGIN inner block for per-transaction exception handling
         -- (errors in one transaction must NOT kill the others)
         -- =====================================================================
+
         BEGIN
             -- =================================================================
             -- ERROR 1 — NULL Transaction Number (Member 2)
             -- Check if the transaction number is NULL before doing anything else.
             -- If it is, raise the custom exception — don't process this one.
             -- =================================================================
+            IF r_outer.transaction_no IS NULL THEN
+                RAISE e_null_transaction_no;
+            END IF;
 
 
             -- =================================================================
@@ -100,6 +118,16 @@ BEGIN
             -- Sum up all debit amounts and all credit amounts for this transaction.
             -- If they don't balance, raise the error BEFORE inserting anything.
             -- =================================================================
+            SELECT 
+                SUM(CASE WHEN transaction_type = 'D' THEN transaction_amount ELSE 0 END),
+                SUM(CASE WHEN transaction_type = 'C' THEN transaction_amount ELSE 0 END)
+            INTO v_debit_total, v_credit_total
+            FROM NEW_TRANSACTIONS
+            WHERE transaction_no = r_outer.transaction_no;
+
+            IF v_debit_total != v_credit_total THEN
+                RAISE e_unbalanced_transaction;
+            END IF;
 
 
             -- =================================================================
@@ -108,6 +136,7 @@ BEGIN
             -- =================================================================
 
             -- open inner cursor for the current transaction number
+
             OPEN c_inner_transaction(v_transaction_no);
 
             LOOP
@@ -120,6 +149,13 @@ BEGIN
                 -- Verify the account number exists in the ACCOUNT table.
                 -- If it doesn't, raise the error — skip the whole transaction.
                 -- =============================================================
+                SELECT COUNT(*) INTO v_account_count
+                FROM ACCOUNT
+                WHERE account_no = r_inner.account_no; 
+
+                IF v_account_count = 0 THEN
+                    RAISE e_invalid_account_no;
+                END IF;
 
 
                 -- =============================================================
@@ -146,6 +182,7 @@ BEGIN
                 -- One row per detail line — mirrors the NEW_TRANSACTIONS row.
                 -- =============================================================
 
+
                     INSERT INTO transaction_detail (
                     transaction_no,
                     account_no,
@@ -164,6 +201,9 @@ BEGIN
                 --   Debit accounts:  add for D, subtract for C
                 --   Credit accounts: subtract for D, add for C
                 -- =============================================================
+
+
+            -- close inner cursor
 
                 SELECT at.default_trans_type
                 INTO v_default_trans_type
@@ -192,6 +232,7 @@ BEGIN
             -- One row per transaction (not per detail row).
             -- Only reaches here if no errors were raised above.
             -- =================================================================
+
             INSERT INTO transaction_history (
                 transaction_no,
                 transaction_date,
@@ -207,6 +248,7 @@ BEGIN
             -- Remove the processed transaction rows — they've been moved
             -- into TRANSACTION_HISTORY and TRANSACTION_DETAIL successfully.
             -- =================================================================
+
             DELETE FROM new_transactions
             WHERE transaction_no = v_transaction_no;
 
@@ -215,12 +257,27 @@ BEGIN
         -- Only the FIRST error per transaction gets recorded.
         -- Once caught, we skip remaining checks for this transaction number.
         -- =====================================================================
+        
 
         EXCEPTION
 
             -- Member 2: WHEN null_transaction_number
             -- log to WKIS_ERROR_LOG with a descriptive custom message
             -- leave the row(s) in NEW_TRANSACTIONS
+            WHEN e_null_transaction_no THEN
+                INSERT INTO WKIS_ERROR_LOG 
+                    (transaction_no, error_msg)
+                VALUES 
+                    (r_outer.transaction_no, 'Validation Error: Transaction ID is NULL. ');
+            
+            -- Member 2: WHEN debits_not_equal_credits
+            -- log to WKIS_ERROR_LOG with a descriptive custom message
+            -- leave the transaction in NEW_TRANSACTIONS
+            WHEN e_unbalanced_transaction THEN
+                INSERT INTO WKIS_ERROR_LOG 
+                    (transaction_no, error_msg)
+                VALUES 
+                    (r_outer.transaction_no, 'Accounting Error: Unbalanced entry Debits: ' || v_debit_total || ' Credits: ' || v_credit_total);
 
             -- Member 2: WHEN debits_not_equal_credits
             -- log to WKIS_ERROR_LOG with a descriptive custom message
@@ -229,6 +286,11 @@ BEGIN
             -- Member 2: WHEN invalid_account_number
             -- log to WKIS_ERROR_LOG with a descriptive custom message
             -- leave the transaction in NEW_TRANSACTIONS
+            WHEN e_invalid_account_no THEN
+                INSERT INTO WKIS_ERROR_LOG 
+                    (transaction_no, error_msg)
+                VALUES 
+                    (r_outer.transaction_no, 'Account Error: The account number does not exist. ');
 
             -- negative dollar amount - shouldn't happen - log it
             -- log to WKIS_ERROR_LOG with a descriptive custom message
@@ -265,6 +327,9 @@ BEGIN
         -- =====================================================================
         -- END inner block
         -- =====================================================================
+
+    -- close outer cursor / end outer loop
+
         END;
     -- close outer cursor / end outer loop
     END LOOP;
